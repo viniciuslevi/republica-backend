@@ -1,0 +1,27 @@
+import Fastify from "fastify";
+import cors from "@fastify/cors";
+import { env } from "./shared/config/env.js";
+import { registerErrorHandler } from "./shared/plugins/errorHandler.js";
+import authPlugin from "./shared/plugins/auth.js";
+import { authRoutes } from "./modules/auth/auth.routes.js";
+import { residenceRoutes } from "./modules/residences/residence.routes.js";
+
+export async function buildApp() {
+  const app = Fastify({
+    logger:
+      env.NODE_ENV === "development"
+        ? { transport: { target: "pino-pretty", options: { translateTime: "HH:MM:ss", ignore: "pid,hostname" } } }
+        : true,
+  });
+
+  await app.register(cors, { origin: env.CORS_ORIGIN });
+  await registerErrorHandler(app);
+  await app.register(authPlugin);
+
+  app.get("/health", async () => ({ status: "ok" }));
+
+  await app.register(authRoutes, { prefix: "/auth" });
+  await app.register(residenceRoutes, { prefix: "/residences" });
+
+  return app;
+}
