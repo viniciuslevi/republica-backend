@@ -1,6 +1,10 @@
 # republica-backend
 
-API do [RepublicApp](../RepublicApp) — organização de tarefas, despesas e listas de compras de repúblicas/moradias compartilhadas.
+API do [RepublicApp](../RepublicApp) — organização de tarefas de repúblicas/moradias compartilhadas.
+
+> Despesas e lista de compras foram removidas temporariamente desta API (o app mobile continua com esses recursos localmente, sem backend, até serem reintroduzidos aqui).
+
+Documentação completa dos endpoints: [docs/API.md](docs/API.md).
 
 ## Stack
 
@@ -12,10 +16,8 @@ Node.js + TypeScript + [Fastify](https://fastify.dev/) + MongoDB (Mongoose) + Zo
 src/
   modules/
     auth/          # registro, login, refresh
-    residences/     # criar residência, entrar por código, membros
-    tasks/          # CRUD de tarefas + recorrência (Única/Diária/Semanal/Mensal)
-    expenses/       # registro de despesas + resumo de saldos
-    shopping/       # lista de compras compartilhada
+    residences/    # criar residência, entrar por código, membros, remoção de membro
+    tasks/         # CRUD de tarefas + recorrência (Única/Diária/Semanal/Mensal)
   shared/
     config/         # variáveis de ambiente (validadas com zod)
     database/       # conexão com o MongoDB
@@ -44,18 +46,17 @@ O servidor sobe em `http://localhost:3000`. `GET /health` para checar se está n
 
 ## Rotas principais
 
-Todas as rotas (exceto `/auth/*` e `/health`) exigem `Authorization: Bearer <accessToken>`.
+Todas as rotas (exceto `/auth/*` e `/health`) exigem `Authorization: Bearer <accessToken>`. Referência completa (payloads, respostas, erros) em [docs/API.md](docs/API.md).
 
 - `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`
 - `POST /residences` — cria residência (retorna `code` de convite)
 - `POST /residences/join` — entra em uma residência pelo `code`
 - `GET /residences` — lista residências do usuário autenticado
-- `GET /residences/:residenceId` — detalhe (só membros)
+- `GET /residences/:residenceId` — detalhe com membros populados (só membros)
+- `DELETE /residences/:residenceId/members/:memberId` — remove um morador (só o admin; admin não pode se auto-remover; último morador não pode ser removido)
 - `GET|POST /residences/:residenceId/tasks`, `PATCH|DELETE /:taskId`, `POST /:taskId/complete|reopen`, `GET /upcoming-occurrences`
-- `GET|POST /residences/:residenceId/expenses`, `DELETE /:expenseId`, `GET /summary`
-- `GET|POST /residences/:residenceId/shopping-items`, `PATCH|DELETE /:itemId`
 
-Todas as rotas de tarefas/despesas/compras exigem que o usuário autenticado seja membro da residência (`:residenceId`), verificado pelo middleware `requireMembership`.
+Todas as rotas de tarefas exigem que o usuário autenticado seja membro da residência (`:residenceId`), verificado pelo middleware `requireMembership`.
 
 ## Testes
 

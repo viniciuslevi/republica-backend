@@ -1,6 +1,7 @@
 import { ResidenceModel } from "./residence.model.js";
+import { TaskModel } from "../tasks/task.model.js";
 import type { CreateResidenceInput } from "./residence.schema.js";
-import { NotFoundError, ConflictError } from "../../shared/errors/AppError.js";
+import { AppError, ForbiddenError, NotFoundError, ConflictError } from "../../shared/errors/AppError.js";
 
 function generateInviteCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -58,6 +59,44 @@ export const residenceService = {
     if (!residence) {
       throw new NotFoundError("Residência não encontrada");
     }
+    return residence;
+  },
+
+  /**
+   * Remove um morador da residência. Só o admin pode remover, o admin não pode remover
+   * a si mesmo e o último morador nunca pode ser removido. Tarefas atribuídas ao morador
+   * removido ficam sem responsável (assigneeId=null), igual ao protótipo mobile.
+   */
+  async removeMember(residenceId: string, requesterId: string, memberId: string) {
+    const residence = await ResidenceModel.findById(residenceId);
+    if (!residence) {
+      throw new NotFoundError("Residência não encontrada");
+    }
+
+    if (residence.adminId.toString() !== requesterId) {
+      throw new ForbiddenError("Apenas o administrador da república pode remover moradores");
+    }
+
+    if (residence.adminId.toString() === memberId) {
+      throw new AppError("O administrador da república não pode ser removido", 400);
+    }
+
+    if (residence.members.length <= 1) {
+      throw new AppError("Não é possível remover o último morador da república", 400);
+    }
+
+    const wasMember = residence.members.some((id) => id.toString() === memberId);
+    if (!wasMember) {
+      throw new NotFoundError("Morador não encontrado nesta residência");
+    }
+
+    residence.members = residence.members.filter(
+      (id) => id.toString() !== memberId
+    ) as typeof residence.members;
+    await residence.save();
+
+    await TaskModel.updateMany({ residenceId, assigneeId: memberId }, { assigneeId: null });
+
     return residence;
   },
 };

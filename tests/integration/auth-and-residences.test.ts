@@ -87,7 +87,7 @@ describe("auth + residências", () => {
     expect(res.statusCode).toBe(401);
   });
 
-  it("calcula o resumo de saldos das despesas dividindo igualmente entre participantes", async () => {
+  it("permite que o admin remova um morador e desatribui as tarefas dele; bloqueia quem não é admin", async () => {
     const ana = (
       await app.inject({
         method: "POST",
@@ -109,7 +109,7 @@ describe("auth + residências", () => {
         method: "POST",
         url: "/residences",
         headers: { authorization: `Bearer ${ana.accessToken}` },
-        payload: { name: "Rep Saldos" },
+        payload: { name: "Rep Moradores" },
       })
     ).json();
 
@@ -120,31 +120,43 @@ describe("auth + residências", () => {
       payload: { code: residence.code },
     });
 
-    await app.inject({
-      method: "POST",
-      url: `/residences/${residence._id}/expenses`,
-      headers: { authorization: `Bearer ${ana.accessToken}` },
-      payload: {
-        description: "Conta de luz",
-        value: 200,
-        payerId: ana.user.id,
-        participantIds: [ana.user.id, bruno.user.id],
-      },
-    });
+    const task = (
+      await app.inject({
+        method: "POST",
+        url: `/residences/${residence._id}/tasks`,
+        headers: { authorization: `Bearer ${ana.accessToken}` },
+        payload: { title: "Lavar louça", assigneeId: bruno.user.id },
+      })
+    ).json();
 
-    const summary = await app.inject({
+    const blockedRemoval = await app.inject({
+      method: "DELETE",
+      url: `/residences/${residence._id}/members/${ana.user.id}`,
+      headers: { authorization: `Bearer ${bruno.accessToken}` },
+    });
+    expect(blockedRemoval.statusCode).toBe(403);
+
+    const adminSelfRemoval = await app.inject({
+      method: "DELETE",
+      url: `/residences/${residence._id}/members/${ana.user.id}`,
+      headers: { authorization: `Bearer ${ana.accessToken}` },
+    });
+    expect(adminSelfRemoval.statusCode).toBe(400);
+
+    const removal = await app.inject({
+      method: "DELETE",
+      url: `/residences/${residence._id}/members/${bruno.user.id}`,
+      headers: { authorization: `Bearer ${ana.accessToken}` },
+    });
+    expect(removal.statusCode).toBe(200);
+    expect(removal.json().members).not.toContain(bruno.user.id);
+
+    const tasksAfter = await app.inject({
       method: "GET",
-      url: `/residences/${residence._id}/expenses/summary`,
+      url: `/residences/${residence._id}/tasks`,
       headers: { authorization: `Bearer ${ana.accessToken}` },
     });
-
-    expect(summary.statusCode).toBe(200);
-    const body = summary.json();
-    expect(body.totalExpenses).toBe(200);
-
-    const anaBalance = body.balances.find((b: { resident: { id: string } }) => b.resident.id === ana.user.id);
-    const brunoBalance = body.balances.find((b: { resident: { id: string } }) => b.resident.id === bruno.user.id);
-    expect(anaBalance.balance).toBe(100);
-    expect(brunoBalance.balance).toBe(-100);
+    const updatedTask = tasksAfter.json().find((t: { _id: string }) => t._id === task._id);
+    expect(updatedTask.assigneeId).toBeNull();
   });
 });
