@@ -21,7 +21,9 @@ export const residenceController = {
   },
 
   async getOne(request: FastifyRequest, reply: FastifyReply) {
-    return reply.status(200).send(request.residence);
+    const { residenceId } = request.params as { residenceId: string };
+    const residence = await residenceService.getById(residenceId);
+    return reply.status(200).send(residence);
   },
 
   async removeMember(request: FastifyRequest, reply: FastifyReply) {

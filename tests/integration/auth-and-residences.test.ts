@@ -22,6 +22,34 @@ afterAll(async () => {
 });
 
 describe("auth + residências", () => {
+  it("GET /residences/:id retorna os membros populados (nome e e-mail, não só o id)", async () => {
+    const register = await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      payload: { name: "Débora", email: "debora@republica.com", password: "123456" },
+    });
+    const { accessToken, user } = register.json();
+
+    const createResidence = await app.inject({
+      method: "POST",
+      url: "/residences",
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { name: "Rep Populada" },
+    });
+    const residence = createResidence.json();
+
+    const detail = await app.inject({
+      method: "GET",
+      url: `/residences/${residence._id}`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+
+    expect(detail.statusCode).toBe(200);
+    const body = detail.json();
+    expect(body.members).toHaveLength(1);
+    expect(body.members[0]).toMatchObject({ _id: user.id, name: "Débora", email: "debora@republica.com" });
+  });
+
   it("registra, cria residência, bloqueia quem não é membro e libera após entrar pelo código", async () => {
     const register = await app.inject({
       method: "POST",
