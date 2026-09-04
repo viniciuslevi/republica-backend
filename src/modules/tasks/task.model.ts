@@ -14,6 +14,10 @@ const taskSchema = new Schema(
     done: { type: Boolean, default: false },
     lastCompletedAt: { type: Date, default: null },
     nextDueDate: { type: Date, default: null },
+    dueDate: { type: Date, default: null },
+    dueTime: { type: String, trim: true, default: null },
+    weekDay: { type: Number, min: 0, max: 6, default: null },
+    monthDay: { type: Number, min: 1, max: 31, default: null },
   },
   { timestamps: true }
 );

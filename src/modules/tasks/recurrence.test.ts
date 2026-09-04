@@ -23,6 +23,57 @@ describe("calculateNextDueDate", () => {
     const next = calculateNextDueDate("Mensal", new Date("2026-01-31T00:00:00"));
     expect(next?.getMonth()).toBe(2); // JS rola 31/jan + 1 mês para março (fev não tem 31 dias)
   });
+
+  it("calcula data limite para tarefa única com dia e horário opcionais", () => {
+    const next = calculateNextDueDate("Única", new Date("2026-01-01T00:00:00Z"), {
+      dueDate: "2026-01-15",
+      dueTime: "14:30",
+    });
+    expect(next).not.toBeNull();
+    expect(next?.getDate()).toBe(15);
+    expect(next?.getHours()).toBe(14);
+    expect(next?.getMinutes()).toBe(30);
+  });
+
+  it("calcula horário específico para tarefas diárias", () => {
+    // Se o horário ainda não passou hoje, retorna hoje no horário
+    const now = new Date("2026-01-10T10:00:00");
+    const next = calculateNextDueDate("Diária", now, { dueTime: "18:00" });
+    expect(next?.getDate()).toBe(10);
+    expect(next?.getHours()).toBe(18);
+    expect(next?.getMinutes()).toBe(0);
+
+    // Se o horário já passou hoje, retorna amanhã no horário
+    const past = new Date("2026-01-10T19:00:00");
+    const nextDay = calculateNextDueDate("Diária", past, { dueTime: "18:00" });
+    expect(nextDay?.getDate()).toBe(11);
+    expect(nextDay?.getHours()).toBe(18);
+  });
+
+  it("calcula dia da semana específico para tarefas semanais", () => {
+    // 2026-01-10 é sábado (getDay() === 6). Próxima segunda (1):
+    const saturday = new Date("2026-01-10T12:00:00");
+    const nextMonday = calculateNextDueDate("Semanal", saturday, { weekDay: 1, dueTime: "09:00" });
+    expect(nextMonday?.getDay()).toBe(1); // Segunda
+    expect(nextMonday?.getDate()).toBe(12); // 12 de janeiro
+    expect(nextMonday?.getHours()).toBe(9);
+    expect(nextMonday?.getMinutes()).toBe(0);
+  });
+
+  it("calcula dia do mês específico para tarefas mensais", () => {
+    // Se for dia 10 e a tarefa é no dia 20:
+    const from = new Date("2026-01-10T12:00:00");
+    const next = calculateNextDueDate("Mensal", from, { monthDay: 20, dueTime: "10:00" });
+    expect(next?.getMonth()).toBe(0); // Janeiro
+    expect(next?.getDate()).toBe(20);
+    expect(next?.getHours()).toBe(10);
+
+    // Se já passou do dia 20 em janeiro:
+    const past = new Date("2026-01-25T12:00:00");
+    const nextMonth = calculateNextDueDate("Mensal", past, { monthDay: 20, dueTime: "10:00" });
+    expect(nextMonth?.getMonth()).toBe(1); // Fevereiro
+    expect(nextMonth?.getDate()).toBe(20);
+  });
 });
 
 describe("shouldResetTask", () => {

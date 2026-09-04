@@ -187,4 +187,105 @@ describe("auth + residências", () => {
     const updatedTask = tasksAfter.json().find((t: { _id: string }) => t._id === task._id);
     expect(updatedTask.assigneeId).toBeNull();
   });
+
+  it("cria e atualiza tarefas com data/hora e regras de periodicidade (única, diária, semanal e mensal)", async () => {
+    const register = await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      payload: { name: "Marcos", email: "marcos@republica.com", password: "123456" },
+    });
+    const { accessToken } = register.json();
+
+    const rep = await app.inject({
+      method: "POST",
+      url: "/residences",
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { name: "Rep Agendada" },
+    });
+    const residence = rep.json();
+
+    // 1. Tarefa Única com dia e horário opcionais
+    const single = await app.inject({
+      method: "POST",
+      url: `/residences/${residence._id}/tasks`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        title: "Comprar lâmpada",
+        recurrence: "Única",
+        dueDate: "2026-09-15",
+        dueTime: "14:30",
+      },
+    });
+    expect(single.statusCode).toBe(201);
+    expect(single.json().dueTime).toBe("14:30");
+    expect(single.json().nextDueDate).not.toBeNull();
+
+    // 2. Tarefa Semanal: weekDay é obrigatório
+    const weeklyInvalid = await app.inject({
+      method: "POST",
+      url: `/residences/${residence._id}/tasks`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        title: "Lavar quintal",
+        recurrence: "Semanal",
+      },
+    });
+    expect(weeklyInvalid.statusCode).toBe(400);
+
+    const weeklyValid = await app.inject({
+      method: "POST",
+      url: `/residences/${residence._id}/tasks`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        title: "Lavar quintal",
+        recurrence: "Semanal",
+        weekDay: 6, // Sábado
+        dueTime: "09:00",
+      },
+    });
+    expect(weeklyValid.statusCode).toBe(201);
+    expect(weeklyValid.json().weekDay).toBe(6);
+    expect(weeklyValid.json().dueTime).toBe("09:00");
+
+    // 3. Tarefa Mensal: monthDay é obrigatório
+    const monthlyInvalid = await app.inject({
+      method: "POST",
+      url: `/residences/${residence._id}/tasks`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        title: "Pagar aluguel",
+        recurrence: "Mensal",
+      },
+    });
+    expect(monthlyInvalid.statusCode).toBe(400);
+
+    const monthlyValid = await app.inject({
+      method: "POST",
+      url: `/residences/${residence._id}/tasks`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        title: "Pagar aluguel",
+        recurrence: "Mensal",
+        monthDay: 10,
+        dueTime: "12:00",
+      },
+    });
+    expect(monthlyValid.statusCode).toBe(201);
+    expect(monthlyValid.json().monthDay).toBe(10);
+    expect(monthlyValid.json().dueTime).toBe("12:00");
+
+    // 4. Edição de tarefa: alterar agendamento
+    const edit = await app.inject({
+      method: "PATCH",
+      url: `/residences/${residence._id}/tasks/${single.json()._id}`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        title: "Comprar lâmpada LED urgente",
+        dueTime: "17:00",
+      },
+    });
+    expect(edit.statusCode).toBe(200);
+    expect(edit.json().title).toBe("Comprar lâmpada LED urgente");
+    expect(edit.json().dueTime).toBe("17:00");
+  });
 });
