@@ -5,6 +5,7 @@ import { registerErrorHandler } from "./shared/plugins/errorHandler.js";
 import authPlugin from "./shared/plugins/auth.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { residenceRoutes } from "./modules/residences/residence.routes.js";
+import { expenseController } from "./modules/expenses/expense.controller.js";
 
 export async function buildApp() {
   const app = Fastify({
@@ -38,6 +39,11 @@ export async function buildApp() {
 
   await app.register(authRoutes, { prefix: "/auth" });
   await app.register(residenceRoutes, { prefix: "/residences" });
+
+  await app.register(async (expenseApp) => {
+    expenseApp.addHook("onRequest", expenseApp.authenticate);
+    expenseApp.post("/expenses", expenseController.createTopLevel);
+  });
 
   return app;
 }

@@ -198,3 +198,45 @@ Query params opcionais: `horizonDays` (padrão 30, máx. 365), `occurrencesPerTa
 ```
 
 Ordenado por `date` crescente.
+
+---
+
+## Expenses (aninhado em `/residences/:residenceId/expenses` e top-level `/expenses`)
+
+Todas as rotas exigem autenticação JWT e verificação de que o usuário pertence à residência.
+
+### `GET /residences/:residenceId/expenses`
+
+Lista as despesas da residência, ordenadas pela data de criação decrescente (mais recente primeiro).
+
+200: array de despesas.
+
+### `POST /residences/:residenceId/expenses`
+
+Body:
+
+```json
+{
+  "description": "Conta de luz",
+  "value": 150.75,
+  "payerId": "665f...",
+  "participantIds": ["665f...", "665f..."]
+}
+```
+
+- `description`: Obrigatório (texto não-vazio).
+- `value`: Obrigatório (número positivo maior que zero).
+- `payerId`: Obrigatório (id do morador da residência que pagou).
+- `participantIds`: Opcional (array de ids dos moradores participantes; se omitido ou vazio, divide entre todos os membros da residência).
+
+201: retorna a despesa criada.
+
+### `DELETE /residences/:residenceId/expenses/:expenseId`
+
+Remove a despesa especificada. 204: sem conteúdo.
+
+### `POST /expenses`
+
+Endpoint alternativo top-level. Aceita os mesmos campos no corpo acrescido de `residenceId` (opcional caso o usuário autenticado pertença a exatamente uma residência).
+
+201: retorna a despesa criada.
