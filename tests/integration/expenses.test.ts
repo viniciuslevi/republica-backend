@@ -248,4 +248,93 @@ describe("módulo de despesas (expenses)", () => {
     expect(body.description).toBe("Gás de cozinha");
     expect(body.value).toBe(125.0);
   });
+
+  it("retorna saldos vazios quando não há despesas registradas (GET /residences/:id/balances)", async () => {
+    const { token1, residence } = await setupResidenceWithTwoMembers();
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/residences/${residence._id}/balances`,
+      headers: { authorization: `Bearer ${token1}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.totalExpenses).toBe(0);
+    expect(body.balances).toEqual([]);
+  });
+
+  it("calcula saldo consolidado de cada morador automaticamente (GET /residences/:id/balances)", async () => {
+    const { token1, user1, user2, residence } = await setupResidenceWithTwoMembers();
+
+    // user1 pagou 100 dividido entre user1 e user2
+    await app.inject({
+      method: "POST",
+      url: `/residences/${residence._id}/expenses`,
+      headers: { authorization: `Bearer ${token1}` },
+      payload: {
+        description: "Mercado",
+        value: 100.0,
+        payerId: user1.id,
+        participantIds: [user1.id, user2.id],
+      },
+    });
+
+    // user2 pagou 40 dividido entre user1 e user2
+    await app.inject({
+      method: "POST",
+      url: `/residences/${residence._id}/expenses`,
+      headers: { authorization: `Bearer ${token1}` },
+      payload: {
+        description: "Padaria",
+        value: 40.0,
+        payerId: user2.id,
+        participantIds: [user1.id, user2.id],
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/residences/${residence._id}/balances`,
+      headers: { authorization: `Bearer ${token1}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    // Total gasto: 100 + 40 = 140
+    expect(body.totalExpenses).toBe(140);
+    expect(body.balances).toHaveLength(2);
+
+    const b1 = body.balances.find((b: any) => b.resident.id === user1.id);
+    const b2 = body.balances.find((b: any) => b.resident.id === user2.id);
+
+    // user1: pagou 100, cota 70 (50+20) => saldo +30 (a receber)
+    expect(b1.paid).toBe(100);
+    expect(b1.share).toBe(70);
+    expect(b1.balance).toBe(30);
+
+    // user2: pagou 40, cota 70 (50+20) => saldo -30 (a pagar)
+    expect(b2.paid).toBe(40);
+    expect(b2.share).toBe(70);
+    expect(b2.balance).toBe(-30);
+  });
+
+  it("bloqueia consulta de saldos por quem não é membro da residência (HTTP 403)", async () => {
+    const { residence } = await setupResidenceWithTwoMembers();
+
+    const outsiderRegister = await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      payload: { name: "Estranho", email: "estranho@republica.com", password: "123456" },
+    });
+    const outsiderToken = outsiderRegister.json().accessToken;
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/residences/${residence._id}/balances`,
+      headers: { authorization: `Bearer ${outsiderToken}` },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
 });

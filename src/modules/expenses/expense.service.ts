@@ -52,4 +52,59 @@ export const expenseService = {
       throw new NotFoundError("Despesa não encontrada");
     }
   },
+
+  async getBalances(residenceId: string) {
+    const residence = await ResidenceModel.findById(residenceId).populate("members", "name email");
+    if (!residence) {
+      throw new NotFoundError("Residência não encontrada");
+    }
+
+    const expenses = await ExpenseModel.find({ residenceId });
+    if (expenses.length === 0) {
+      return { totalExpenses: 0, balances: [] };
+    }
+
+    const allMemberIds = residence.members.map((m: any) => m._id.toString());
+    const totalExpenses = round2(expenses.reduce((sum, e) => sum + e.value, 0));
+
+    const balances = (residence.members as any[]).map((member) => {
+      const mId = member._id.toString();
+
+      const paid = round2(
+        expenses
+          .filter((e) => e.payerId.toString() === mId)
+          .reduce((sum, e) => sum + e.value, 0)
+      );
+
+      const share = round2(
+        expenses.reduce((sum, e) => {
+          const participantIds =
+            e.participantIds && e.participantIds.length > 0
+              ? e.participantIds.map((p: any) => p.toString())
+              : allMemberIds;
+          if (!participantIds.includes(mId)) return sum;
+          return sum + e.value / participantIds.length;
+        }, 0)
+      );
+
+      const balance = round2(paid - share);
+
+      return {
+        resident: {
+          id: mId,
+          name: member.name,
+          email: member.email,
+        },
+        paid,
+        share,
+        balance,
+      };
+    });
+
+    return { totalExpenses, balances };
+  },
 };
+
+function round2(val: number): number {
+  return Math.round((val + Number.EPSILON) * 100) / 100;
+}

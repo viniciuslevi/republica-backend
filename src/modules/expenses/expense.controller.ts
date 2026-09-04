@@ -14,6 +14,12 @@ export const expenseController = {
     return reply.status(200).send(expenses);
   },
 
+  async getBalances(request: FastifyRequest, reply: FastifyReply) {
+    const { residenceId } = request.params as ResidenceParams;
+    const result = await expenseService.getBalances(residenceId);
+    return reply.status(200).send(result);
+  },
+
   async create(request: FastifyRequest, reply: FastifyReply) {
     const { residenceId } = request.params as ResidenceParams;
     const input = createExpenseSchema.parse(request.body);

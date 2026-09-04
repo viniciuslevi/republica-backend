@@ -3,6 +3,7 @@ import { expenseController } from "./expense.controller.js";
 
 export const expenseRoutes: FastifyPluginAsync = async (app) => {
   app.get("/", expenseController.list);
+  app.get("/balances", expenseController.getBalances);
   app.post("/", expenseController.create);
   app.delete("/:expenseId", expenseController.remove);
 };

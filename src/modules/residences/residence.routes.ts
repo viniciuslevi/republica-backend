@@ -3,6 +3,7 @@ import { residenceController } from "./residence.controller.js";
 import { requireMembership } from "../../shared/middlewares/requireMembership.js";
 import { taskRoutes } from "../tasks/task.routes.js";
 import { expenseRoutes } from "../expenses/expense.routes.js";
+import { expenseController } from "../expenses/expense.controller.js";
 
 export const residenceRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("onRequest", app.authenticate);
@@ -16,6 +17,7 @@ export const residenceRoutes: FastifyPluginAsync = async (app) => {
 
     scoped.get("/:residenceId", residenceController.getOne);
     scoped.delete("/:residenceId/members/:memberId", residenceController.removeMember);
+    scoped.get("/:residenceId/balances", expenseController.getBalances);
 
     scoped.register(taskRoutes, { prefix: "/:residenceId/tasks" });
     scoped.register(expenseRoutes, { prefix: "/:residenceId/expenses" });
