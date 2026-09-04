@@ -1,4 +1,4 @@
-import { Schema, model, type InferSchemaType, type HydratedDocument } from "mongoose";
+import mongoose, { Schema, model, type InferSchemaType, type HydratedDocument, type Model } from "mongoose";
 
 const userSchema = new Schema(
   {
@@ -12,4 +12,5 @@ const userSchema = new Schema(
 
 export type UserDocument = HydratedDocument<InferSchemaType<typeof userSchema>>;
 
-export const UserModel = model("User", userSchema);
+export const UserModel: Model<InferSchemaType<typeof userSchema>> =
+  (mongoose.models?.User as Model<InferSchemaType<typeof userSchema>>) || model("User", userSchema);

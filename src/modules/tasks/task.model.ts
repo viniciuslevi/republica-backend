@@ -1,4 +1,4 @@
-import { Schema, model, type InferSchemaType, type HydratedDocument } from "mongoose";
+import mongoose, { Schema, model, type InferSchemaType, type HydratedDocument, type Model } from "mongoose";
 
 const RECURRENCES = ["Única", "Diária", "Semanal", "Mensal"] as const;
 const PRIORITIES = ["Baixa", "Média", "Alta"] as const;
@@ -24,4 +24,5 @@ const taskSchema = new Schema(
 
 export type TaskDocument = HydratedDocument<InferSchemaType<typeof taskSchema>>;
 
-export const TaskModel = model("Task", taskSchema);
+export const TaskModel: Model<InferSchemaType<typeof taskSchema>> =
+  (mongoose.models?.Task as Model<InferSchemaType<typeof taskSchema>>) || model("Task", taskSchema);

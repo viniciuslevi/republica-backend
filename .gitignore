@@ -6,3 +6,6 @@ dist/
 *.log
 .DS_Store
 coverage/
+
+# Scripts locais de desenvolvimento / testes
+src/scripts/
