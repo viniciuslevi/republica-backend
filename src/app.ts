@@ -18,6 +18,22 @@ export async function buildApp() {
   await registerErrorHandler(app);
   await app.register(authPlugin);
 
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "string" },
+    (_req, body: string, done) => {
+      if (!body || body.trim() === "") {
+        return done(null, {});
+      }
+      try {
+        done(null, JSON.parse(body));
+      } catch (err: any) {
+        err.statusCode = 400;
+        done(err, undefined);
+      }
+    }
+  );
+
   app.get("/health", async () => ({ status: "ok" }));
 
   await app.register(authRoutes, { prefix: "/auth" });

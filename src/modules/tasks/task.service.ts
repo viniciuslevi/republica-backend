@@ -12,6 +12,10 @@ function toRecurringTaskLike(task: TaskDocument): RecurringTaskLike {
     done: task.done,
     lastCompletedAt: task.lastCompletedAt ?? null,
     nextDueDate: task.nextDueDate ?? null,
+    dueDate: task.dueDate ?? null,
+    dueTime: task.dueTime ?? null,
+    weekDay: task.weekDay ?? null,
+    monthDay: task.monthDay ?? null,
   };
 }
 
@@ -36,7 +40,12 @@ async function applyRecurrenceReset(residenceId: string, now: Date = new Date())
         {
           done: false,
           lastCompletedAt: null,
-          nextDueDate: calculateNextDueDate(task.recurrence as RecurringTaskLike["recurrence"], now),
+          nextDueDate: calculateNextDueDate(task.recurrence as RecurringTaskLike["recurrence"], now, {
+            dueTime: task.dueTime,
+            weekDay: task.weekDay,
+            monthDay: task.monthDay,
+            dueDate: task.dueDate,
+          }),
         }
       )
     )
@@ -65,7 +74,12 @@ export const taskService = {
           {
             done: false,
             lastCompletedAt: null,
-            nextDueDate: calculateNextDueDate(task.recurrence as RecurringTaskLike["recurrence"], now),
+            nextDueDate: calculateNextDueDate(task.recurrence as RecurringTaskLike["recurrence"], now, {
+              dueTime: task.dueTime,
+              weekDay: task.weekDay,
+              monthDay: task.monthDay,
+              dueDate: task.dueDate,
+            }),
           }
         )
       )
@@ -76,7 +90,17 @@ export const taskService = {
 
   async create(residenceId: string, input: CreateTaskInput) {
     const recurrence = input.recurrence ?? "Única";
-    const nextDueDate = recurrence !== "Única" ? calculateNextDueDate(recurrence) : null;
+    const dueDate = input.dueDate ? new Date(input.dueDate) : null;
+    const dueTime = input.dueTime ?? null;
+    const weekDay = input.weekDay ?? null;
+    const monthDay = input.monthDay ?? null;
+
+    const nextDueDate = calculateNextDueDate(recurrence, new Date(), {
+      dueTime,
+      weekDay,
+      monthDay,
+      dueDate,
+    });
 
     return TaskModel.create({
       residenceId,
@@ -85,6 +109,10 @@ export const taskService = {
       assigneeId: input.assigneeId ?? null,
       recurrence,
       priority: input.priority ?? "Média",
+      dueDate,
+      dueTime,
+      weekDay,
+      monthDay,
       nextDueDate,
     });
   },
@@ -99,9 +127,25 @@ export const taskService = {
     if (input.description !== undefined) task.description = input.description;
     if (input.assigneeId !== undefined) task.assigneeId = input.assigneeId as TaskDocument["assigneeId"];
     if (input.priority !== undefined) task.priority = input.priority;
-    if (input.recurrence !== undefined) {
-      task.recurrence = input.recurrence;
-      task.nextDueDate = input.recurrence !== "Única" ? calculateNextDueDate(input.recurrence) : null;
+    if (input.recurrence !== undefined) task.recurrence = input.recurrence;
+    if (input.dueDate !== undefined) task.dueDate = input.dueDate ? new Date(input.dueDate) : null;
+    if (input.dueTime !== undefined) task.dueTime = input.dueTime ?? null;
+    if (input.weekDay !== undefined) task.weekDay = input.weekDay ?? null;
+    if (input.monthDay !== undefined) task.monthDay = input.monthDay ?? null;
+
+    if (
+      input.recurrence !== undefined ||
+      input.dueDate !== undefined ||
+      input.dueTime !== undefined ||
+      input.weekDay !== undefined ||
+      input.monthDay !== undefined
+    ) {
+      task.nextDueDate = calculateNextDueDate(task.recurrence as RecurringTaskLike["recurrence"], new Date(), {
+        dueTime: task.dueTime,
+        weekDay: task.weekDay,
+        monthDay: task.monthDay,
+        dueDate: task.dueDate,
+      });
     }
 
     await task.save();

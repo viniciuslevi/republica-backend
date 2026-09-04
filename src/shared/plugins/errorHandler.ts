@@ -19,6 +19,10 @@ export async function registerErrorHandler(app: FastifyInstance) {
       return reply.status(400).send({ error: "Dados inválidos", issues: error.validation });
     }
 
+    if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
+      return reply.status(error.statusCode).send({ error: error.message });
+    }
+
     app.log.error(error);
     return reply.status(500).send({ error: "Erro interno do servidor" });
   });
