@@ -99,4 +99,19 @@ export const residenceService = {
 
     return residence;
   },
+
+  async updatePlan(residenceId: string, requesterId: string, plan: "free" | "premium") {
+    const residence = await ResidenceModel.findById(residenceId);
+    if (!residence) {
+      throw new NotFoundError("Residência não encontrada");
+    }
+
+    if (residence.adminId.toString() !== requesterId) {
+      throw new ForbiddenError("Apenas o administrador da república pode alterar o plano");
+    }
+
+    residence.plan = plan;
+    await residence.save();
+    return residence;
+  },
 };
