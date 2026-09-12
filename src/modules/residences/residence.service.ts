@@ -21,6 +21,8 @@ async function generateUniqueInviteCode() {
   throw new ConflictError("Não foi possível gerar um código de convite único, tente novamente");
 }
 
+export const FREE_PLAN_MEMBER_LIMIT = 6;
+
 export const residenceService = {
   async create(userId: string, input: CreateResidenceInput) {
     const code = await generateUniqueInviteCode();
@@ -43,6 +45,12 @@ export const residenceService = {
 
     const alreadyMember = residence.members.some((memberId) => memberId.toString() === userId);
     if (!alreadyMember) {
+      if (residence.plan !== "premium" && residence.members.length >= FREE_PLAN_MEMBER_LIMIT) {
+        throw new ForbiddenError(
+          `Esta república atingiu o limite de ${FREE_PLAN_MEMBER_LIMIT} moradores do plano gratuito. Faça upgrade para o plano Premium para adicionar novos membros.`
+        );
+      }
+
       residence.members.push(userId as unknown as (typeof residence.members)[number]);
       await residence.save();
     }
@@ -97,6 +105,21 @@ export const residenceService = {
 
     await TaskModel.updateMany({ residenceId, assigneeId: memberId }, { assigneeId: null });
 
+    return residence;
+  },
+
+  async updatePlan(residenceId: string, requesterId: string, plan: "free" | "premium") {
+    const residence = await ResidenceModel.findById(residenceId);
+    if (!residence) {
+      throw new NotFoundError("Residência não encontrada");
+    }
+
+    if (residence.adminId.toString() !== requesterId) {
+      throw new ForbiddenError("Apenas o administrador da república pode alterar o plano");
+    }
+
+    residence.plan = plan;
+    await residence.save();
     return residence;
   },
 };
