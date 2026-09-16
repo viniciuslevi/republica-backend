@@ -13,6 +13,7 @@ Base URL local padrão: `http://localhost:3000` (`PORT`/`HOST` configuráveis em
 - [Auth](#auth)
 - [Residences](#residences)
 - [Tasks](#tasks-aninhado-em-residencesresidenceidtasks)
+- [Reports](#reports-aninhado-em-residencesresidenceidreports)
 
 ## Autenticação
 
@@ -198,6 +199,40 @@ Query params opcionais: `horizonDays` (padrão 30, máx. 365), `occurrencesPerTa
 ```
 
 Ordenado por `date` crescente.
+
+### `GET /residences/:residenceId/tasks/reminders`
+
+Automação de lembretes (recurso premium, SCRUM-27): lista tarefas recorrentes atrasadas ou com vencimento dentro da janela informada, em ordem de urgência. Requer que a residência esteja no plano `premium` (senão `403`, mesma regra de [Reports](#reports-aninhado-em-residencesresidenceidreports)).
+
+Query params opcionais: `windowHours` (padrão 48, máx. 720).
+
+200:
+
+```json
+[
+  {
+    "taskId": "665f...",
+    "title": "Lavar louça",
+    "assigneeId": "665f...",
+    "recurrence": "Diária",
+    "dueDate": "2026-09-02T03:00:00.000Z",
+    "minutesUntilDue": -45,
+    "overdue": true
+  }
+]
+```
+
+Ordenado por `dueDate` crescente. `minutesUntilDue` negativo e `overdue: true` indicam que a tarefa já passou do vencimento.
+
+---
+
+## Reports (aninhado em `/residences/:residenceId/reports`)
+
+Todas as rotas exigem que a residência esteja no plano `premium` (middleware `requirePremium`); caso contrário, `403`.
+
+### `GET /residences/:residenceId/reports/summary`
+
+Relatório agregado de despesas e tarefas concluídas por morador. Query params opcionais: `startDate`, `endDate` (ISO 8601).
 
 ---
 

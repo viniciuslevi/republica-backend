@@ -23,7 +23,7 @@ src/
     database/       # conexão com o MongoDB
     errors/         # AppError e subclasses (404, 401, 403, 409)
     jobs/           # reset diário de tarefas recorrentes (fallback do node-cron)
-    middlewares/    # requireMembership (isola dados por residência)
+    middlewares/    # requireMembership (isola dados por residência), requirePremium (recursos exclusivos do plano premium)
     plugins/        # error handler global, autenticação (JWT)
     security/       # emissão/verificação de access e refresh tokens
   app.ts            # monta o Fastify e registra plugins/rotas
@@ -55,8 +55,10 @@ Todas as rotas (exceto `/auth/*` e `/health`) exigem `Authorization: Bearer <acc
 - `GET /residences/:residenceId` — detalhe com membros populados (só membros)
 - `DELETE /residences/:residenceId/members/:memberId` — remove um morador (só o admin; admin não pode se auto-remover; último morador não pode ser removido)
 - `GET|POST /residences/:residenceId/tasks`, `PATCH|DELETE /:taskId`, `POST /:taskId/complete|reopen`, `GET /upcoming-occurrences`
+- `GET /residences/:residenceId/tasks/reminders` — automação de lembretes de tarefas recorrentes atrasadas/próximas do vencimento (recurso premium)
+- `GET /residences/:residenceId/reports/summary` — relatório agregado de despesas e tarefas por morador (recurso premium)
 
-Todas as rotas de tarefas exigem que o usuário autenticado seja membro da residência (`:residenceId`), verificado pelo middleware `requireMembership`.
+Todas as rotas de tarefas exigem que o usuário autenticado seja membro da residência (`:residenceId`), verificado pelo middleware `requireMembership`. As rotas marcadas como premium também exigem que a residência esteja no plano `premium` (`requirePremium`), senão retornam `403`.
 
 ## Testes
 

@@ -217,3 +217,46 @@ export function getUpcomingOccurrences(
   occurrences.sort((a, b) => a.date.getTime() - b.date.getTime());
   return occurrences;
 }
+
+export interface TaskReminder {
+  taskId: string;
+  title: string;
+  assigneeId: string | null;
+  recurrence: Recurrence;
+  dueDate: Date;
+  minutesUntilDue: number;
+  overdue: boolean;
+}
+
+/**
+ * Lembretes (in-app) de tarefas recorrentes com vencimento próximo — recurso premium
+ * da automação (SCRUM-27). Considera atrasadas (nextDueDate já passou) e as que vencem
+ * dentro da janela informada, em ordem de urgência.
+ */
+export function getDueSoonReminders(
+  tasks: RecurringTaskLike[],
+  options: { windowHours?: number; now?: Date } = {}
+): TaskReminder[] {
+  const { windowHours = 48, now = new Date() } = options;
+  const horizonMs = now.getTime() + windowHours * 60 * 60 * 1000;
+
+  const reminders: TaskReminder[] = [];
+
+  for (const task of tasks) {
+    if (task.done || !task.recurrence || task.recurrence === "Única" || !task.nextDueDate) continue;
+    if (task.nextDueDate.getTime() > horizonMs) continue;
+
+    reminders.push({
+      taskId: task.id,
+      title: task.title,
+      assigneeId: task.assigneeId,
+      recurrence: task.recurrence,
+      dueDate: task.nextDueDate,
+      minutesUntilDue: Math.round((task.nextDueDate.getTime() - now.getTime()) / 60000),
+      overdue: task.nextDueDate.getTime() <= now.getTime(),
+    });
+  }
+
+  reminders.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+  return reminders;
+}
