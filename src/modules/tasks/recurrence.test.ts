@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateNextDueDate, getUpcomingOccurrences, shouldResetTask } from "./recurrence.js";
+import { calculateNextDueDate, getDueSoonReminders, getUpcomingOccurrences, shouldResetTask } from "./recurrence.js";
 
 describe("calculateNextDueDate", () => {
   it("retorna null para tarefas únicas", () => {
@@ -170,5 +170,87 @@ describe("getUpcomingOccurrences", () => {
     expect(occurrences.every((o) => o.taskId === "t-diaria")).toBe(true);
     expect(occurrences.length).toBeGreaterThan(0);
     expect(occurrences).toEqual([...occurrences].sort((a, b) => a.date.getTime() - b.date.getTime()));
+  });
+});
+
+describe("getDueSoonReminders", () => {
+  const now = new Date("2026-01-10T12:00:00");
+
+  it("ignora tarefas únicas, concluídas e sem nextDueDate", () => {
+    const reminders = getDueSoonReminders(
+      [
+        {
+          id: "t-unica",
+          title: "Tarefa única",
+          assigneeId: null,
+          recurrence: "Única",
+          done: false,
+          lastCompletedAt: null,
+          nextDueDate: new Date("2026-01-10T13:00:00"),
+        },
+        {
+          id: "t-concluida",
+          title: "Tarefa concluída",
+          assigneeId: null,
+          recurrence: "Diária",
+          done: true,
+          lastCompletedAt: now,
+          nextDueDate: new Date("2026-01-10T13:00:00"),
+        },
+        {
+          id: "t-sem-data",
+          title: "Sem data",
+          assigneeId: null,
+          recurrence: "Diária",
+          done: false,
+          lastCompletedAt: null,
+          nextDueDate: null,
+        },
+      ],
+      { now }
+    );
+
+    expect(reminders).toEqual([]);
+  });
+
+  it("inclui tarefas atrasadas e dentro da janela, ordenadas por urgência", () => {
+    const reminders = getDueSoonReminders(
+      [
+        {
+          id: "t-atrasada",
+          title: "Atrasada",
+          assigneeId: "u1",
+          recurrence: "Diária",
+          done: false,
+          lastCompletedAt: null,
+          nextDueDate: new Date("2026-01-10T10:00:00"),
+        },
+        {
+          id: "t-em-breve",
+          title: "Em breve",
+          assigneeId: "u2",
+          recurrence: "Semanal",
+          done: false,
+          lastCompletedAt: null,
+          nextDueDate: new Date("2026-01-11T00:00:00"),
+        },
+        {
+          id: "t-fora-da-janela",
+          title: "Fora da janela",
+          assigneeId: null,
+          recurrence: "Mensal",
+          done: false,
+          lastCompletedAt: null,
+          nextDueDate: new Date("2026-02-01T00:00:00"),
+        },
+      ],
+      { windowHours: 24, now }
+    );
+
+    expect(reminders.map((r) => r.taskId)).toEqual(["t-atrasada", "t-em-breve"]);
+    expect(reminders[0]?.overdue).toBe(true);
+    expect(reminders[0]?.minutesUntilDue).toBeLessThan(0);
+    expect(reminders[1]?.overdue).toBe(false);
+    expect(reminders[1]?.minutesUntilDue).toBeGreaterThan(0);
   });
 });

@@ -84,5 +84,9 @@ export const upcomingOccurrencesQuerySchema = z.object({
   occurrencesPerTask: z.coerce.number().int().positive().max(50).optional(),
 });
 
+export const remindersQuerySchema = z.object({
+  windowHours: z.coerce.number().int().positive().max(24 * 30).optional(),
+});
+
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;

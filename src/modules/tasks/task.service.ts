@@ -1,7 +1,7 @@
 import { TaskModel, type TaskDocument } from "./task.model.js";
 import type { CreateTaskInput, UpdateTaskInput } from "./task.schema.js";
 import { NotFoundError } from "../../shared/errors/AppError.js";
-import { calculateNextDueDate, getUpcomingOccurrences, shouldResetTask, type RecurringTaskLike } from "./recurrence.js";
+import { calculateNextDueDate, getDueSoonReminders, getUpcomingOccurrences, shouldResetTask, type RecurringTaskLike } from "./recurrence.js";
 
 function toRecurringTaskLike(task: TaskDocument): RecurringTaskLike {
   return {
@@ -177,5 +177,14 @@ export const taskService = {
   ) {
     const tasks = await applyRecurrenceReset(residenceId);
     return getUpcomingOccurrences(tasks.map(toRecurringTaskLike), options);
+  },
+
+  /**
+   * Lembretes (in-app) de tarefas recorrentes com vencimento próximo — recurso premium
+   * da automação de lembretes (SCRUM-27). Rota já é protegida por requirePremium.
+   */
+  async getReminders(residenceId: string, options: { windowHours?: number } = {}) {
+    const tasks = await applyRecurrenceReset(residenceId);
+    return getDueSoonReminders(tasks.map(toRecurringTaskLike), options);
   },
 };
