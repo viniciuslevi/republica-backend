@@ -2,6 +2,8 @@ import { z } from "zod";
 
 const recurrenceEnum = z.enum(["Única", "Diária", "Semanal", "Mensal"]);
 const priorityEnum = z.enum(["Baixa", "Média", "Alta"]);
+export const taskStatusEnum = z.enum(["A fazer", "Em andamento", "Feito", "Cancelada"]);
+export type TaskStatus = z.infer<typeof taskStatusEnum>;
 
 const emptyToNull = (val: unknown) => (val === "" ? null : val);
 
@@ -11,6 +13,7 @@ const baseTaskSchema = z.object({
   assigneeId: z.string().trim().nullable().optional(),
   recurrence: recurrenceEnum.optional(),
   priority: priorityEnum.optional(),
+  status: taskStatusEnum.optional(),
   dueDate: z.preprocess(emptyToNull, z.coerce.date().nullable().optional()),
   dueTime: z.preprocess(
     emptyToNull,
@@ -88,5 +91,10 @@ export const remindersQuerySchema = z.object({
   windowHours: z.coerce.number().int().positive().max(24 * 30).optional(),
 });
 
+export const updateTaskStatusSchema = z.object({
+  status: taskStatusEnum,
+});
+
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+export type UpdateTaskStatusInput = z.infer<typeof updateTaskStatusSchema>;
