@@ -30,7 +30,7 @@ export interface HistoryItem {
 }
 
 export const historyService = {
-  async getHistory(residenceId: string, query: HistoryQuery = {}): Promise<HistoryItem[]> {
+  async getHistory(residenceId: string, query: Partial<HistoryQuery> = {}): Promise<HistoryItem[]> {
     const residence = await ResidenceModel.findById(residenceId);
     if (!residence) {
       throw new NotFoundError("Residência não encontrada");
