@@ -9,6 +9,7 @@ export const taskRoutes: FastifyPluginAsync = async (app) => {
   // Automação de lembretes é recurso premium (SCRUM-27) — demais rotas de tarefas ficam livres.
   app.get("/reminders", { preHandler: requirePremium }, taskController.reminders);
   app.patch("/:taskId", taskController.update);
+  app.patch("/:taskId/status", taskController.updateStatus);
   app.delete("/:taskId", taskController.remove);
   app.post("/:taskId/complete", taskController.complete);
   app.post("/:taskId/reopen", taskController.reopen);

@@ -144,11 +144,11 @@ Remove um morador da residência. Regras:
 
 ## Tasks (aninhado em `/residences/:residenceId/tasks`)
 
-Valores válidos: `recurrence` ∈ `Única | Diária | Semanal | Mensal`; `priority` ∈ `Baixa | Média | Alta`.
+Valores válidos: `recurrence` ∈ `Única | Diária | Semanal | Mensal`; `priority` ∈ `Baixa | Média | Alta`; `status` ∈ `A fazer | Em andamento | Feito | Cancelada`.
 
 ### `GET /residences/:residenceId/tasks`
 
-Lista as tarefas da residência. Antes de responder, aplica o **reset de recorrência preguiçoso**: qualquer tarefa recorrente concluída cujo ciclo já expirou volta para `done: false` automaticamente (ver `src/modules/tasks/recurrence.ts`). Isso é reforçado por um job diário (`node-cron`, 00:05) que cobre residências que ninguém abriu no app naquele dia.
+Lista as tarefas da residência. Antes de responder, aplica o **reset de recorrência preguiçoso**: qualquer tarefa recorrente concluída cujo ciclo já expirou volta para `done: false` e `status: "A fazer"` automaticamente (ver `src/modules/tasks/recurrence.ts`). Isso é reforçado por um job diário (`node-cron`, 00:05) que cobre residências que ninguém abriu no app naquele dia.
 
 200: array de tarefas.
 
@@ -162,15 +162,28 @@ Body:
   "description": "opcional",
   "assigneeId": "665f...",
   "recurrence": "Diária",
-  "priority": "Alta"
+  "priority": "Alta",
+  "status": "A fazer"
 }
 ```
 
-Todos os campos exceto `title` são opcionais (`recurrence` padrão `Única`, `priority` padrão `Média`, `assigneeId` padrão `null`). 201 — retorna a tarefa criada, com `nextDueDate` já calculado se `recurrence !== "Única"`.
+Todos os campos exceto `title` são opcionais (`recurrence` padrão `Única`, `priority` padrão `Média`, `assigneeId` padrão `null`, `status` padrão `A fazer`). 201 — retorna a tarefa criada, com `nextDueDate` já calculado se `recurrence !== "Única"`.
 
 ### `PATCH /residences/:residenceId/tasks/:taskId`
 
-Body: subconjunto de `{ title, description, assigneeId, recurrence, priority }`. Trocar `recurrence` recalcula `nextDueDate`. 200 — tarefa atualizada. 404 se não existir na residência.
+Body: subconjunto de `{ title, description, assigneeId, recurrence, priority, status }`. Trocar `recurrence` recalcula `nextDueDate`. Alterar status para `Feito` define `done: true` e atualiza `lastCompletedAt`. Alterar para `Cancelada` define `done: true`. Alterar para `A fazer` ou `Em andamento` define `done: false`. 200 — tarefa atualizada. 404 se não existir na residência.
+
+### `PATCH /residences/:residenceId/tasks/:taskId/status`
+
+Body:
+
+```json
+{
+  "status": "Em andamento"
+}
+```
+
+Valores permitidos: `A fazer`, `Em andamento`, `Feito`, `Cancelada`. 200 — retorna a tarefa atualizada com os estados de `done` e `lastCompletedAt` sincronizados.
 
 ### `DELETE /residences/:residenceId/tasks/:taskId`
 
@@ -178,11 +191,11 @@ Body: subconjunto de `{ title, description, assigneeId, recurrence, priority }`.
 
 ### `POST /residences/:residenceId/tasks/:taskId/complete`
 
-Marca `done: true` e `lastCompletedAt: <agora>`. 200 — tarefa atualizada.
+Marca `done: true`, `status: "Feito"` e `lastCompletedAt: <agora>`. 200 — tarefa atualizada.
 
 ### `POST /residences/:residenceId/tasks/:taskId/reopen`
 
-Marca `done: false` e `lastCompletedAt: null`. 200 — tarefa atualizada.
+Marca `done: false`, `status: "A fazer"` e `lastCompletedAt: null`. 200 — tarefa atualizada.
 
 ### `GET /residences/:residenceId/tasks/upcoming-occurrences`
 
