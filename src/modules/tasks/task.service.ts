@@ -1,7 +1,7 @@
 import { TaskModel, type TaskDocument } from "./task.model.js";
-import type { CreateTaskInput, UpdateTaskInput } from "./task.schema.js";
+import type { CreateTaskInput, UpdateTaskInput, TaskStatus } from "./task.schema.js";
 import { NotFoundError } from "../../shared/errors/AppError.js";
-import { calculateNextDueDate, getUpcomingOccurrences, shouldResetTask, type RecurringTaskLike } from "./recurrence.js";
+import { calculateNextDueDate, getDueSoonReminders, getUpcomingOccurrences, shouldResetTask, type RecurringTaskLike } from "./recurrence.js";
 
 function toRecurringTaskLike(task: TaskDocument): RecurringTaskLike {
   return {
@@ -21,12 +21,23 @@ function toRecurringTaskLike(task: TaskDocument): RecurringTaskLike {
 
 /**
  * Reset "preguiçoso": toda vez que as tarefas de uma residência são lidas, tarefas
- * recorrentes concluídas cujo ciclo já expirou voltam para done=false. Complementado
- * por um job diário (ver shared/jobs/resetRecurringTasks.ts) para residências que
+ * recorrentes concluídas cujo ciclo já expirou voltam para done=false e status="A fazer".
+ * Complementado por um job diário (ver shared/jobs/resetRecurringTasks.ts) para residências que
  * ninguém abriu no app.
  */
 async function applyRecurrenceReset(residenceId: string, now: Date = new Date()) {
   const tasks = await TaskModel.find({ residenceId });
+
+  // Corrige tarefas legadas concluídas que existiam antes do campo status
+  const legacyDone = tasks.filter((task) => task.done && task.status === "A fazer");
+  if (legacyDone.length > 0) {
+    await Promise.all(
+      legacyDone.map((task) => {
+        task.status = "Feito";
+        return TaskModel.updateOne({ _id: task._id }, { status: "Feito" });
+      })
+    );
+  }
 
   const toReset = tasks.filter((task) => shouldResetTask(toRecurringTaskLike(task), now));
   if (toReset.length === 0) {
@@ -39,6 +50,7 @@ async function applyRecurrenceReset(residenceId: string, now: Date = new Date())
         { _id: task._id },
         {
           done: false,
+          status: "A fazer",
           lastCompletedAt: null,
           nextDueDate: calculateNextDueDate(task.recurrence as RecurringTaskLike["recurrence"], now, {
             dueTime: task.dueTime,
@@ -73,6 +85,7 @@ export const taskService = {
           { _id: task._id },
           {
             done: false,
+            status: "A fazer",
             lastCompletedAt: null,
             nextDueDate: calculateNextDueDate(task.recurrence as RecurringTaskLike["recurrence"], now, {
               dueTime: task.dueTime,
@@ -94,6 +107,9 @@ export const taskService = {
     const dueTime = input.dueTime ?? null;
     const weekDay = input.weekDay ?? null;
     const monthDay = input.monthDay ?? null;
+    const status = input.status ?? "A fazer";
+    const done = status === "Feito" || status === "Cancelada";
+    const lastCompletedAt = status === "Feito" ? new Date() : null;
 
     const nextDueDate = calculateNextDueDate(recurrence, new Date(), {
       dueTime,
@@ -109,6 +125,9 @@ export const taskService = {
       assigneeId: input.assigneeId ?? null,
       recurrence,
       priority: input.priority ?? "Média",
+      status,
+      done,
+      lastCompletedAt,
       dueDate,
       dueTime,
       weekDay,
@@ -133,12 +152,28 @@ export const taskService = {
     if (input.weekDay !== undefined) task.weekDay = input.weekDay ?? null;
     if (input.monthDay !== undefined) task.monthDay = input.monthDay ?? null;
 
+    if (input.status !== undefined) {
+      task.status = input.status;
+      if (input.status === "Feito") {
+        task.done = true;
+        task.lastCompletedAt = new Date();
+      } else if (input.status === "Cancelada") {
+        task.done = true;
+        task.lastCompletedAt = null;
+      } else {
+        // "A fazer" ou "Em andamento"
+        task.done = false;
+        task.lastCompletedAt = null;
+      }
+    }
+
     if (
       input.recurrence !== undefined ||
       input.dueDate !== undefined ||
       input.dueTime !== undefined ||
       input.weekDay !== undefined ||
-      input.monthDay !== undefined
+      input.monthDay !== undefined ||
+      input.status === "Feito"
     ) {
       task.nextDueDate = calculateNextDueDate(task.recurrence as RecurringTaskLike["recurrence"], new Date(), {
         dueTime: task.dueTime,
@@ -166,9 +201,22 @@ export const taskService = {
     }
 
     task.done = done;
+    task.status = done ? "Feito" : "A fazer";
     task.lastCompletedAt = done ? new Date() : null;
+    if (done) {
+      task.nextDueDate = calculateNextDueDate(task.recurrence as RecurringTaskLike["recurrence"], new Date(), {
+        dueTime: task.dueTime,
+        weekDay: task.weekDay,
+        monthDay: task.monthDay,
+        dueDate: task.dueDate,
+      });
+    }
     await task.save();
     return task;
+  },
+
+  async updateStatus(residenceId: string, taskId: string, status: TaskStatus) {
+    return this.update(residenceId, taskId, { status });
   },
 
   async upcomingOccurrences(
@@ -177,5 +225,14 @@ export const taskService = {
   ) {
     const tasks = await applyRecurrenceReset(residenceId);
     return getUpcomingOccurrences(tasks.map(toRecurringTaskLike), options);
+  },
+
+  /**
+   * Lembretes (in-app) de tarefas recorrentes com vencimento próximo — recurso premium
+   * da automação de lembretes (SCRUM-27). Rota já é protegida por requirePremium.
+   */
+  async getReminders(residenceId: string, options: { windowHours?: number } = {}) {
+    const tasks = await applyRecurrenceReset(residenceId);
+    return getDueSoonReminders(tasks.map(toRecurringTaskLike), options);
   },
 };

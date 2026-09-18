@@ -13,6 +13,7 @@ Base URL local padrão: `http://localhost:3000` (`PORT`/`HOST` configuráveis em
 - [Auth](#auth)
 - [Residences](#residences)
 - [Tasks](#tasks-aninhado-em-residencesresidenceidtasks)
+- [Reports](#reports-aninhado-em-residencesresidenceidreports)
 
 ## Autenticação
 
@@ -143,11 +144,11 @@ Remove um morador da residência. Regras:
 
 ## Tasks (aninhado em `/residences/:residenceId/tasks`)
 
-Valores válidos: `recurrence` ∈ `Única | Diária | Semanal | Mensal`; `priority` ∈ `Baixa | Média | Alta`.
+Valores válidos: `recurrence` ∈ `Única | Diária | Semanal | Mensal`; `priority` ∈ `Baixa | Média | Alta`; `status` ∈ `A fazer | Em andamento | Feito | Cancelada`.
 
 ### `GET /residences/:residenceId/tasks`
 
-Lista as tarefas da residência. Antes de responder, aplica o **reset de recorrência preguiçoso**: qualquer tarefa recorrente concluída cujo ciclo já expirou volta para `done: false` automaticamente (ver `src/modules/tasks/recurrence.ts`). Isso é reforçado por um job diário (`node-cron`, 00:05) que cobre residências que ninguém abriu no app naquele dia.
+Lista as tarefas da residência. Antes de responder, aplica o **reset de recorrência preguiçoso**: qualquer tarefa recorrente concluída cujo ciclo já expirou volta para `done: false` e `status: "A fazer"` automaticamente (ver `src/modules/tasks/recurrence.ts`). Isso é reforçado por um job diário (`node-cron`, 00:05) que cobre residências que ninguém abriu no app naquele dia.
 
 200: array de tarefas.
 
@@ -161,15 +162,28 @@ Body:
   "description": "opcional",
   "assigneeId": "665f...",
   "recurrence": "Diária",
-  "priority": "Alta"
+  "priority": "Alta",
+  "status": "A fazer"
 }
 ```
 
-Todos os campos exceto `title` são opcionais (`recurrence` padrão `Única`, `priority` padrão `Média`, `assigneeId` padrão `null`). 201 — retorna a tarefa criada, com `nextDueDate` já calculado se `recurrence !== "Única"`.
+Todos os campos exceto `title` são opcionais (`recurrence` padrão `Única`, `priority` padrão `Média`, `assigneeId` padrão `null`, `status` padrão `A fazer`). 201 — retorna a tarefa criada, com `nextDueDate` já calculado se `recurrence !== "Única"`.
 
 ### `PATCH /residences/:residenceId/tasks/:taskId`
 
-Body: subconjunto de `{ title, description, assigneeId, recurrence, priority }`. Trocar `recurrence` recalcula `nextDueDate`. 200 — tarefa atualizada. 404 se não existir na residência.
+Body: subconjunto de `{ title, description, assigneeId, recurrence, priority, status }`. Trocar `recurrence` recalcula `nextDueDate`. Alterar status para `Feito` define `done: true` e atualiza `lastCompletedAt`. Alterar para `Cancelada` define `done: true`. Alterar para `A fazer` ou `Em andamento` define `done: false`. 200 — tarefa atualizada. 404 se não existir na residência.
+
+### `PATCH /residences/:residenceId/tasks/:taskId/status`
+
+Body:
+
+```json
+{
+  "status": "Em andamento"
+}
+```
+
+Valores permitidos: `A fazer`, `Em andamento`, `Feito`, `Cancelada`. 200 — retorna a tarefa atualizada com os estados de `done` e `lastCompletedAt` sincronizados.
 
 ### `DELETE /residences/:residenceId/tasks/:taskId`
 
@@ -177,11 +191,11 @@ Body: subconjunto de `{ title, description, assigneeId, recurrence, priority }`.
 
 ### `POST /residences/:residenceId/tasks/:taskId/complete`
 
-Marca `done: true` e `lastCompletedAt: <agora>`. 200 — tarefa atualizada.
+Marca `done: true`, `status: "Feito"` e `lastCompletedAt: <agora>`. 200 — tarefa atualizada.
 
 ### `POST /residences/:residenceId/tasks/:taskId/reopen`
 
-Marca `done: false` e `lastCompletedAt: null`. 200 — tarefa atualizada.
+Marca `done: false`, `status: "A fazer"` e `lastCompletedAt: null`. 200 — tarefa atualizada.
 
 ### `GET /residences/:residenceId/tasks/upcoming-occurrences`
 
@@ -198,6 +212,40 @@ Query params opcionais: `horizonDays` (padrão 30, máx. 365), `occurrencesPerTa
 ```
 
 Ordenado por `date` crescente.
+
+### `GET /residences/:residenceId/tasks/reminders`
+
+Automação de lembretes (recurso premium, SCRUM-27): lista tarefas recorrentes atrasadas ou com vencimento dentro da janela informada, em ordem de urgência. Requer que a residência esteja no plano `premium` (senão `403`, mesma regra de [Reports](#reports-aninhado-em-residencesresidenceidreports)).
+
+Query params opcionais: `windowHours` (padrão 48, máx. 720).
+
+200:
+
+```json
+[
+  {
+    "taskId": "665f...",
+    "title": "Lavar louça",
+    "assigneeId": "665f...",
+    "recurrence": "Diária",
+    "dueDate": "2026-09-02T03:00:00.000Z",
+    "minutesUntilDue": -45,
+    "overdue": true
+  }
+]
+```
+
+Ordenado por `dueDate` crescente. `minutesUntilDue` negativo e `overdue: true` indicam que a tarefa já passou do vencimento.
+
+---
+
+## Reports (aninhado em `/residences/:residenceId/reports`)
+
+Todas as rotas exigem que a residência esteja no plano `premium` (middleware `requirePremium`); caso contrário, `403`.
+
+### `GET /residences/:residenceId/reports/summary`
+
+Relatório agregado de despesas e tarefas concluídas por morador. Query params opcionais: `startDate`, `endDate` (ISO 8601).
 
 ---
 
@@ -281,4 +329,66 @@ Quando não há despesas registradas, retorna `totalExpenses: 0` e `balances: []
     }
   ]
 }
+```
+
+---
+
+## History (aninhado em `/residences/:residenceId/history`)
+
+Linha do tempo integrada que agrega tarefas concluídas (`done: true`) e despesas registradas em ordem cronológica decrescente. Exige autenticação JWT e que o usuário pertença à residência.
+
+### `GET /residences/:residenceId/history`
+
+Retorna as tarefas concluídas e despesas da residência ordenadas da mais recente para a mais antiga. Quando não há registros, retorna array vazio `[]` ("sem histórico").
+
+#### Query Parameters:
+- `type`: Opcional (`all`, `task`, `expense`). Padrão: `all`.
+- `residentId`: Opcional (ID do morador responsável ou pagador).
+- `dateFrom` / `startDate`: Opcional (data inicial no formato ISO ou `AAAA-MM-DD`).
+- `dateTo` / `endDate`: Opcional (data final no formato ISO ou `AAAA-MM-DD`).
+- `limit`: Opcional (inteiro positivo para limitar número de registros).
+
+#### 200 OK:
+```json
+[
+  {
+    "id": "expense_665f...",
+    "originalId": "665f...",
+    "type": "expense",
+    "title": "Conta de luz",
+    "description": "Conta de luz",
+    "value": 150.0,
+    "date": "2026-09-18T10:30:00.000Z",
+    "personId": "665e...",
+    "personName": "Carlos",
+    "responsible": {
+      "id": "665e...",
+      "name": "Carlos",
+      "email": "carlos@republica.com"
+    },
+    "payer": {
+      "id": "665e...",
+      "name": "Carlos",
+      "email": "carlos@republica.com"
+    }
+  },
+  {
+    "id": "task_665d...",
+    "originalId": "665d...",
+    "type": "task",
+    "title": "Limpar a sala",
+    "description": "Limpar a sala",
+    "detail": "Varrer e passar pano",
+    "date": "2026-09-17T15:00:00.000Z",
+    "personId": "665a...",
+    "personName": "Ana",
+    "responsible": {
+      "id": "665a...",
+      "name": "Ana",
+      "email": "ana@republica.com"
+    },
+    "priority": "Média",
+    "recurrence": "Semanal"
+  }
+]
 ```

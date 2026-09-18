@@ -2,6 +2,8 @@ import mongoose, { Schema, model, type InferSchemaType, type HydratedDocument, t
 
 const RECURRENCES = ["Única", "Diária", "Semanal", "Mensal"] as const;
 const PRIORITIES = ["Baixa", "Média", "Alta"] as const;
+export const TASK_STATUSES = ["A fazer", "Em andamento", "Feito", "Cancelada"] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 const taskSchema = new Schema(
   {
@@ -11,6 +13,13 @@ const taskSchema = new Schema(
     assigneeId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     recurrence: { type: String, enum: RECURRENCES, default: "Única" },
     priority: { type: String, enum: PRIORITIES, default: "Média" },
+    status: {
+      type: String,
+      enum: TASK_STATUSES,
+      default: function (this: any) {
+        return this?.done ? "Feito" : "A fazer";
+      },
+    },
     done: { type: Boolean, default: false },
     lastCompletedAt: { type: Date, default: null },
     nextDueDate: { type: Date, default: null },

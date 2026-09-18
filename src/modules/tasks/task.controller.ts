@@ -1,6 +1,12 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { taskService } from "./task.service.js";
-import { createTaskSchema, updateTaskSchema, upcomingOccurrencesQuerySchema } from "./task.schema.js";
+import {
+  createTaskSchema,
+  updateTaskSchema,
+  updateTaskStatusSchema,
+  upcomingOccurrencesQuerySchema,
+  remindersQuerySchema,
+} from "./task.schema.js";
 
 type ResidenceParams = { residenceId: string };
 type TaskParams = ResidenceParams & { taskId: string };
@@ -23,6 +29,13 @@ export const taskController = {
     const { residenceId, taskId } = request.params as TaskParams;
     const input = updateTaskSchema.parse(request.body);
     const task = await taskService.update(residenceId, taskId, input);
+    return reply.status(200).send(task);
+  },
+
+  async updateStatus(request: FastifyRequest, reply: FastifyReply) {
+    const { residenceId, taskId } = request.params as TaskParams;
+    const input = updateTaskStatusSchema.parse(request.body);
+    const task = await taskService.updateStatus(residenceId, taskId, input.status);
     return reply.status(200).send(task);
   },
 
@@ -49,5 +62,12 @@ export const taskController = {
     const query = upcomingOccurrencesQuerySchema.parse(request.query);
     const occurrences = await taskService.upcomingOccurrences(residenceId, query);
     return reply.status(200).send(occurrences);
+  },
+
+  async reminders(request: FastifyRequest, reply: FastifyReply) {
+    const { residenceId } = request.params as ResidenceParams;
+    const query = remindersQuerySchema.parse(request.query);
+    const reminders = await taskService.getReminders(residenceId, query);
+    return reply.status(200).send(reminders);
   },
 };

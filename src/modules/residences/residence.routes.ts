@@ -4,6 +4,9 @@ import { requireMembership } from "../../shared/middlewares/requireMembership.js
 import { taskRoutes } from "../tasks/task.routes.js";
 import { expenseRoutes } from "../expenses/expense.routes.js";
 import { expenseController } from "../expenses/expense.controller.js";
+import { reportRoutes } from "../reports/report.routes.js";
+import { shoppingRoutes } from "../shopping/shopping.routes.js";
+import { historyRoutes } from "../history/history.routes.js";
 
 export const residenceRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("onRequest", app.authenticate);
@@ -16,10 +19,14 @@ export const residenceRoutes: FastifyPluginAsync = async (app) => {
     scoped.addHook("preHandler", requireMembership);
 
     scoped.get("/:residenceId", residenceController.getOne);
+    scoped.patch("/:residenceId/plan", residenceController.updatePlan);
     scoped.delete("/:residenceId/members/:memberId", residenceController.removeMember);
     scoped.get("/:residenceId/balances", expenseController.getBalances);
 
     scoped.register(taskRoutes, { prefix: "/:residenceId/tasks" });
     scoped.register(expenseRoutes, { prefix: "/:residenceId/expenses" });
+    scoped.register(reportRoutes, { prefix: "/:residenceId/reports" });
+    scoped.register(shoppingRoutes, { prefix: "/:residenceId/shopping-items" });
+    scoped.register(historyRoutes, { prefix: "/:residenceId/history" });
   });
 };

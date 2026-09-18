@@ -10,5 +10,13 @@ export const joinResidenceSchema = z.object({
   code: z.string().trim().min(1, "Informe o código de convite"),
 });
 
+export const updatePlanSchema = z.object({
+  plan: z.enum(["free", "premium"], {
+    errorMap: () => ({ message: "O plano deve ser 'free' ou 'premium'" }),
+  }),
+});
+
 export type CreateResidenceInput = z.infer<typeof createResidenceSchema>;
 export type JoinResidenceInput = z.infer<typeof joinResidenceSchema>;
+export type UpdatePlanInput = z.infer<typeof updatePlanSchema>;
+
