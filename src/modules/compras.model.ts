@@ -13,6 +13,7 @@ const compraSchema = new Schema(
     solicitante: { type: String, required: true },
     isComprado: { type: Boolean, default: false },
     dataSolicitacao: { type: Date, default: Date.now },
+    residenceId: { type: String, default: null },
   },
   { timestamps: true },
 );

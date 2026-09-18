@@ -8,6 +8,7 @@ import authPlugin from "./shared/plugins/auth.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { residenceRoutes } from "./modules/residences/residence.routes.js";
 import { comprasRoutes } from "./modules/compras.routes.js";
+import { historicoRoutes } from "./modules/historico.routes.js";
 import { expenseController } from "./modules/expenses/expense.controller.js";
 
 export async function buildApp() {
@@ -57,6 +58,9 @@ export async function buildApp() {
 
   // COMPRAS
   await app.register(comprasRoutes);
+
+  // HISTÓRICO
+  await app.register(historicoRoutes);
 
   // DESPESAS
   await app.register(async (expenseApp) => {
