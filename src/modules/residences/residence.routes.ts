@@ -6,6 +6,7 @@ import { expenseRoutes } from "../expenses/expense.routes.js";
 import { expenseController } from "../expenses/expense.controller.js";
 import { reportRoutes } from "../reports/report.routes.js";
 import { shoppingRoutes } from "../shopping/shopping.routes.js";
+import { historyRoutes } from "../history/history.routes.js";
 
 export const residenceRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("onRequest", app.authenticate);
@@ -26,5 +27,6 @@ export const residenceRoutes: FastifyPluginAsync = async (app) => {
     scoped.register(expenseRoutes, { prefix: "/:residenceId/expenses" });
     scoped.register(reportRoutes, { prefix: "/:residenceId/reports" });
     scoped.register(shoppingRoutes, { prefix: "/:residenceId/shopping-items" });
+    scoped.register(historyRoutes, { prefix: "/:residenceId/history" });
   });
 };

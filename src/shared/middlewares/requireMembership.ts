@@ -17,7 +17,8 @@ export async function requireMembership(request: FastifyRequest, _reply: Fastify
     throw new UnauthorizedError();
   }
 
-  const { residenceId } = request.params as { residenceId?: string };
+  const params = request.params as { residenceId?: string; id?: string };
+  const residenceId = params.residenceId || params.id;
   if (!residenceId) {
     throw new NotFoundError("Residência não encontrada");
   }

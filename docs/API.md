@@ -317,3 +317,65 @@ Quando não há despesas registradas, retorna `totalExpenses: 0` e `balances: []
   ]
 }
 ```
+
+---
+
+## History (aninhado em `/residences/:residenceId/history`)
+
+Linha do tempo integrada que agrega tarefas concluídas (`done: true`) e despesas registradas em ordem cronológica decrescente. Exige autenticação JWT e que o usuário pertença à residência.
+
+### `GET /residences/:residenceId/history`
+
+Retorna as tarefas concluídas e despesas da residência ordenadas da mais recente para a mais antiga. Quando não há registros, retorna array vazio `[]` ("sem histórico").
+
+#### Query Parameters:
+- `type`: Opcional (`all`, `task`, `expense`). Padrão: `all`.
+- `residentId`: Opcional (ID do morador responsável ou pagador).
+- `dateFrom` / `startDate`: Opcional (data inicial no formato ISO ou `AAAA-MM-DD`).
+- `dateTo` / `endDate`: Opcional (data final no formato ISO ou `AAAA-MM-DD`).
+- `limit`: Opcional (inteiro positivo para limitar número de registros).
+
+#### 200 OK:
+```json
+[
+  {
+    "id": "expense_665f...",
+    "originalId": "665f...",
+    "type": "expense",
+    "title": "Conta de luz",
+    "description": "Conta de luz",
+    "value": 150.0,
+    "date": "2026-09-18T10:30:00.000Z",
+    "personId": "665e...",
+    "personName": "Carlos",
+    "responsible": {
+      "id": "665e...",
+      "name": "Carlos",
+      "email": "carlos@republica.com"
+    },
+    "payer": {
+      "id": "665e...",
+      "name": "Carlos",
+      "email": "carlos@republica.com"
+    }
+  },
+  {
+    "id": "task_665d...",
+    "originalId": "665d...",
+    "type": "task",
+    "title": "Limpar a sala",
+    "description": "Limpar a sala",
+    "detail": "Varrer e passar pano",
+    "date": "2026-09-17T15:00:00.000Z",
+    "personId": "665a...",
+    "personName": "Ana",
+    "responsible": {
+      "id": "665a...",
+      "name": "Ana",
+      "email": "ana@republica.com"
+    },
+    "priority": "Média",
+    "recurrence": "Semanal"
+  }
+]
+```
